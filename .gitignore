@@ -1,0 +1,17 @@
+node_modules/
+frontend/node_modules/
+
+__pycache__/
+*.pyc
+*.pyo
+
+.qa-agent/logs/
+*.log
+
+.lighthouse-tmp/
+.lh-test.json
+
+frontend/dist/
+
+.env
+frontend/.env

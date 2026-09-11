@@ -1,0 +1,36 @@
+WEBSITE QA AGENT - MODERN SELECTIVE UI
+
+Replace at project root:
+- app.py
+- scanner.py
+- requirements.txt
+- .gitignore
+
+Add inside your existing checks folder:
+- checks/registry.py
+
+Keep all existing QA check files in checks/ unchanged:
+- page_speed_check.py
+- link_check.py
+- image_check.py
+- meta_check.py
+- responsive_check.py
+- sticky_header_check.py
+- css_animation_check.py
+- browser_compatibility_check.py
+- google_translate_check.py
+- whatsapp_check.py
+- social_media_check.py
+- contact_form_check.py
+- blog_check.py
+- content_check.py
+- layout_design_check.py
+
+Add the complete frontend/ folder at project root.
+
+Behavior:
+- Cards visually show selected/unselected state.
+- Only selected check IDs are sent to FastAPI.
+- scanner.py executes only those selected modules.
+- Page Speed remains first when selected.
+- Browser Compatibility remains last when selected.

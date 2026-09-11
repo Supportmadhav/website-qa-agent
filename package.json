@@ -1,0 +1,8 @@
+{
+  "name": "website-qa-agent",
+  "private": true,
+  "description": "Local Lighthouse fallback for Page Speed reports",
+  "dependencies": {
+    "lighthouse": "^12.8.2"
+  }
+}
