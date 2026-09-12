@@ -18,6 +18,7 @@ import {
 
 
 const FILTERS = [
+  { id: "attention", label: "Needs attention" },
   { id: "all", label: "All" },
   { id: "fail", label: "Fail" },
   { id: "warning", label: "Warning" },
@@ -184,7 +185,9 @@ function ContentIssueTable({
       ? issues
       : issues.filter(
           (issue) =>
-            issue.status === filter
+            filter === "attention"
+              ? issue.status === "fail" || issue.status === "warning"
+              : issue.status === filter
         );
 
   if (!rows.length) {
@@ -249,7 +252,12 @@ function ContentIssueTable({
                     {issue.rule || "—"}
                   </td>
                   <td className="px-4 py-3 align-top text-xs leading-5 text-slate-600">
-                    {issue.context || "—"}
+                    {issue.context?.length > 130 ? (
+                      <details>
+                        <summary className="cursor-pointer">{issue.context.slice(0, 130)}…</summary>
+                        <p className="mt-2 whitespace-pre-wrap">{issue.context}</p>
+                      </details>
+                    ) : issue.context || "—"}
                   </td>
                 </tr>
               )
@@ -286,7 +294,9 @@ function FindingsTable({
         return (
           filter === "all"
           ||
-          finding.status === filter
+          (filter === "attention"
+            ? finding.status === "fail" || finding.status === "warning"
+            : finding.status === filter)
         );
       }
     );
@@ -298,7 +308,7 @@ function FindingsTable({
 
     return (
       <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
-        No rows match this status filter.
+        {filter === "attention" ? "No warning or failure findings." : "No rows match this status filter."}
       </div>
     );
   }
@@ -380,7 +390,14 @@ export default function ReadableQaReport({
   const [
     filter,
     setFilter,
-  ] = useState("all");
+  ] = useState(() =>
+    (result.findings || []).some(item => item.status === "warning" || item.status === "fail")
+      ? "attention"
+      : (result.findings || []).length > 0
+        && (result.findings || []).every(item => item.status === "pass")
+        ? "summary"
+        : "all"
+  );
 
   const findings =
     result.findings
@@ -517,7 +534,7 @@ export default function ReadableQaReport({
                 {
                   item.id !== "all"
                   &&
-                  ` (${counts[item.id] || 0})`
+                  ` (${item.id === "attention" ? counts.fail + counts.warning : counts[item.id] || 0})`
                 }
               </button>
             )
@@ -536,11 +553,19 @@ export default function ReadableQaReport({
         )
       }
 
-      <FindingsTable
-        result={result}
-        findings={findings}
-        filter={filter}
-      />
+      {filter === "summary" ? (
+        <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-5 text-sm text-emerald-800">
+          <p className="font-semibold">All checks passed.</p>
+          <button type="button" onClick={() => setFilter("all")}
+            className="mt-2 text-xs font-bold underline">Show all checks</button>
+        </div>
+      ) : (
+        <FindingsTable
+          result={result}
+          findings={findings}
+          filter={filter}
+        />
+      )}
     </section>
   );
 }

@@ -19,6 +19,12 @@ import PageLinkListReport, {
 import BlogPageReport from "./BlogPageReport";
 import BrowserCompatibilityReport from "./BrowserCompatibilityReport";
 import ReadableQaReport from "./ReadableQaReport";
+import {
+  BrokenLinksInsightReport,
+  LayoutInsightReport,
+  SeoInsightReport,
+  SocialMediaInsightReport,
+} from "./InsightReports";
 
 import {
   buildDefaultReportName,
@@ -824,6 +830,24 @@ export default function ReportPanel({
         />
       </section>
     );
+  }
+
+  const focusedResult = reportResults[0];
+
+  if (focusedResult?.id === "social_media" && focusedResult.social_profiles) {
+    return <SocialMediaInsightReport report={report} result={focusedResult} />;
+  }
+
+  if (focusedResult?.id === "meta" && focusedResult.seo_overview) {
+    return <SeoInsightReport report={report} result={focusedResult} />;
+  }
+
+  if (focusedResult?.id === "layout_design" && focusedResult.design_overview) {
+    return <LayoutInsightReport report={report} result={focusedResult} />;
+  }
+
+  if (focusedResult?.id === "links") {
+    return <BrokenLinksInsightReport report={report} result={focusedResult} />;
   }
 
 

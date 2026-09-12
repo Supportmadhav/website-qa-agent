@@ -3393,6 +3393,156 @@ function downloadContentPdfV29(
 }
 
 
+function downloadInsightPdf(report, result, reportName) {
+  const doc = new jsPDF({ unit: "pt", format: "a4" });
+  const margin = 36;
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  let y = 42;
+
+  const ensure = (height = 70) => {
+    if (y + height > pageHeight - 44) {
+      doc.addPage();
+      y = 42;
+    }
+  };
+  const heading = (value, size = 12) => {
+    ensure(35);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(size);
+    doc.setTextColor(15, 23, 42);
+    doc.text(pdfSafeV29(value), margin, y);
+    y += size + 9;
+  };
+  const paragraph = (value) => {
+    ensure(35);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(71, 85, 105);
+    const lines = doc.splitTextToSize(pdfSafeV29(value), pageWidth - 2 * margin);
+    doc.text(lines, margin, y);
+    y += lines.length * 12 + 13;
+  };
+  const table = (columns, rows, widths = {}) => {
+    ensure(55);
+    autoTable(doc, {
+      startY: y,
+      head: [columns],
+      body: rows.length ? rows : [["No items", ...columns.slice(1).map(() => "")]],
+      margin: { left: margin, right: margin, bottom: 48 },
+      theme: "grid",
+      styles: { font: "helvetica", fontSize: 7.5, cellPadding: 5, valign: "top", overflow: "linebreak" },
+      headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255] },
+      columnStyles: widths,
+      rowPageBreak: "avoid",
+      showHead: "everyPage",
+    });
+    y = doc.lastAutoTable.finalY + 18;
+  };
+
+  heading(reportName, 17);
+  paragraph(`Website: ${report.page?.final_url || ""}`);
+  const findings = result.findings || [];
+  const attention = findings.filter(item => item.status === "fail" || item.status === "warning");
+  const usabilityTitles = [
+    "Very Small Text", "Text Clipping", "Line Height", "Wide Paragraphs",
+    "Image Distortion", "Small Buttons / CTAs",
+  ];
+  const counts = Object.fromEntries(["fail", "warning", "pass", "info"].map(status => [
+    status, findings.filter(item => item.status === status).length,
+  ]));
+  table(["Fail", "Warning", "Pass", "Info"], [[counts.fail, counts.warning, counts.pass, counts.info]]);
+
+  if (result.id === "social_media") {
+    const profiles = Array.from(new Map((result.social_profiles || []).map(item => [item.url, item])).values());
+    heading("Detected social profiles");
+    table(["Platform", "URL", "Status"], profiles.map(item => [
+      item.platform, item.url, item.issues?.length ? item.issues.join("; ") : "Verified",
+    ]), { 0: { cellWidth: 90 }, 2: { cellWidth: 140 } });
+    paragraph(`${profiles.length} profiles - ${profiles.every(item => item.opens_new_tab) ? "opens in new tab" : "some do not open in a new tab"} - ${profiles.some(item => item.is_duplicate) ? "duplicates found" : "no duplicate URLs"}.`);
+  }
+
+  if (result.id === "meta" && result.seo_overview) {
+    const seo = result.seo_overview;
+    heading(`SEO score: ${seo.seo_score}/100`);
+    table(["Signal", "Result", "Target"], [
+      ["Page title", seo.title_text || "Missing", `${seo.title_length} chars; ideal 50-60`],
+      ["Meta description", seo.description_text || "Missing", `${seo.description_length} chars; ideal 155-160`],
+      ["Heading structure", seo.heading_skips?.length ? `Skipped: ${seo.heading_skips.join(", ")}` : `${seo.heading_sequence?.length || 0} headings; no skips`, "No skipped levels"],
+      ["Image alt tags", `Present ${seo.alt_present_count}; Empty ${seo.alt_empty_count}; Missing ${seo.alt_missing_count}`, "Descriptive alt text"],
+    ], { 0: { cellWidth: 105 }, 2: { cellWidth: 125 } });
+    heading("Meta tags");
+    table(["Tag", "Present"], Object.entries(seo.meta_tags_present || {}).map(([tag, present]) => [
+      tag.replaceAll("_", " "), present ? "Yes" : "No",
+    ]), { 0: { cellWidth: 290 } });
+    heading("Heading outline");
+    table(["Level", "Text"], (seo.heading_sequence || []).map(item => [`H${item.level}`, item.text || "Empty"]), { 0: { cellWidth: 65 } });
+  }
+
+  if (result.id === "layout_design" && result.design_overview) {
+    const design = result.design_overview;
+    heading(`Design score: ${design.design_score}/100`);
+    paragraph(design.score_basis || "Objective design signals only; whitespace is experimental.");
+    table(["Signal", "Value"], [
+      ["Dominant colors", (design.dominant_colors || []).join(", ")],
+      ["Font families", (design.font_families || []).join(", ") || "Not detected"],
+      ["Heading type scale", design.type_scale_consistent ? "Consistent" : "Review needed"],
+      ["Whitespace density - Beta", `${design.whitespace_density_score}/100 (experimental; excluded from score)`],
+    ], { 0: { cellWidth: 165 } });
+    const lowContrast = (design.contrast_pairs || []).filter(item => !item.passes_aa);
+    heading("Contrast pairs below WCAG AA");
+    table(["Text", "Foreground", "Background", "Ratio"], lowContrast.map(item => [
+      item.text, item.fg, item.bg, `${item.ratio}:1`,
+    ]), { 1: { cellWidth: 80 }, 2: { cellWidth: 80 }, 3: { cellWidth: 65 } });
+    heading("Usability checklist");
+    table(["Check", "Status", "Details"], findings.filter(item =>
+      usabilityTitles.includes(item.title)
+    ).map(item => [item.title, item.status.toUpperCase(), item.status === "pass" ? "" : item.message]),
+    { 0: { cellWidth: 145 }, 1: { cellWidth: 75 } });
+  }
+
+  if (result.id === "links") {
+    const readCount = name => Number((findings.find(item => item.title === name)?.message?.match(/\d+/) || [0])[0]);
+    const flagged = findings.filter(item => item.title === "Broken URL" || item.title === "Unverified URL");
+    heading("Link overview");
+    table(["Total links", "Working", "Unverified", "Broken"], [[
+      readCount("HTML Links"), readCount("Working Links"),
+      flagged.filter(item => item.title === "Unverified URL").length,
+      flagged.filter(item => item.title === "Broken URL").length,
+    ]]);
+    heading("Flagged links");
+    table(["Status", "URL and reason"], flagged.sort((a, b) => (a.status === "fail" ? -1 : 1) - (b.status === "fail" ? -1 : 1)).map(item => [
+      item.status.toUpperCase(), item.message,
+    ]), { 0: { cellWidth: 80 } });
+    paragraph(`Inventory: ${readCount("Unique HTTP Links")} unique HTTP links; ${readCount("Ignored Non-HTTP Links")} ignored non-HTTP links.`);
+  }
+
+  const remainingAttention = result.id === "links"
+    ? []
+    : result.id === "layout_design"
+      ? attention.filter(item => !usabilityTitles.includes(item.title))
+      : attention;
+
+  if (remainingAttention.length) {
+    heading("Items needing attention");
+    table(["Status", "Check", "Details"], remainingAttention.map(item => [
+      item.status.toUpperCase(), item.title, item.message,
+    ]), { 0: { cellWidth: 70 }, 1: { cellWidth: 125 } });
+  } else if (!attention.length) {
+    paragraph("All checks passed. Individual PASS rows are suppressed for clarity.");
+  }
+
+  const pageCount = doc.getNumberOfPages();
+  for (let index = 1; index <= pageCount; index += 1) {
+    doc.setPage(index);
+    doc.setFontSize(7);
+    doc.setTextColor(100, 116, 139);
+    doc.text(`${pdfSafeV29(reportName)} - ${index}/${pageCount}`, margin, pageHeight - 18);
+  }
+  doc.save(`${cleanFilename(reportName)}.pdf`);
+}
+
+
 export function downloadPdfReport(
   report
 ) {
@@ -3463,6 +3613,26 @@ export function downloadPdfReport(
     buildDefaultReportName(
       report
     );
+
+  const insightResult = (report.results || []).length === 1
+    ? report.results[0]
+    : null;
+
+  if (insightResult && (
+    (insightResult.id === "social_media" && insightResult.social_profiles)
+    || (insightResult.id === "meta" && insightResult.seo_overview)
+    || (insightResult.id === "layout_design" && insightResult.design_overview)
+    || insightResult.id === "links"
+  )) {
+    downloadInsightPdf(
+      report,
+      insightResult,
+      insightResult.id === "meta"
+        ? reportName.replace(/^Meta & Source Data/, "SEO Report")
+        : reportName
+    );
+    return;
+  }
 
 
   if (
@@ -4486,12 +4656,25 @@ export function downloadPdfReport(
     // NORMAL QA FINDINGS TABLE
     // =================================
 
+    const allFindings = result.findings || [];
+    const hasAttention = allFindings.some(
+      item => item.status === "warning" || item.status === "fail"
+    );
+
+    if (allFindings.length && !hasAttention && allFindings.every(item => item.status === "pass")) {
+      addText("All checks passed. Individual PASS rows are suppressed for clarity.", {
+        size: 9,
+        gap: 10,
+      });
+      continue;
+    }
+
+    const pdfFindings = hasAttention
+      ? allFindings.filter(item => item.status !== "pass")
+      : allFindings;
+
     const bodyRows =
-      (
-        result.findings
-        ||
-        []
-      ).map(
+      pdfFindings.map(
         (finding) => [
           statusLabel(
             finding.status
@@ -4618,11 +4801,7 @@ export function downloadPdfReport(
               0
             ) {
               const finding =
-                (
-                  result.findings
-                  ||
-                  []
-                )[
+                pdfFindings[
                   hookData.row.index
                 ];
 

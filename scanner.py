@@ -26,6 +26,13 @@ from checks.registry import (
     CHECK_ORDER,
     CHECK_REGISTRY,
 )
+from checks.report_enrichment import (
+    collect_design_overview,
+    collect_seo_overview,
+    collect_social_profiles,
+    design_metric_findings,
+    seo_metric_findings,
+)
 
 
 STATUS_MAP = {
@@ -2523,21 +2530,50 @@ def run_scan(
         )
 
         for check_id in ordered_checks:
-            results.append(
-                _run_one_check(
-                    check_id=
-                        check_id,
-
-                    page=
-                        page,
-
-                    playwright=
-                        p,
-
-                    url=
-                        url,
-                )
+            result = _run_one_check(
+                check_id=check_id,
+                page=page,
+                playwright=p,
+                url=url,
             )
+
+            try:
+                if check_id == "social_media":
+                    result["social_profiles"] = collect_social_profiles(page)
+                elif check_id == "meta":
+                    overview = collect_seo_overview(page)
+                    result["seo_overview"] = overview
+                    result["findings"].extend(seo_metric_findings(overview))
+                elif check_id == "layout_design":
+                    overview = collect_design_overview(page)
+                    usability_checks = (
+                        "Very Small Text", "Text Clipping", "Line Height",
+                        "Wide Paragraphs", "Image Distortion",
+                        "Small Buttons / CTAs",
+                    )
+                    by_title = {
+                        finding.get("title"): finding
+                        for finding in result.get("findings", [])
+                    }
+                    passed = sum(
+                        by_title.get(title, {}).get("status") == "pass"
+                        for title in usability_checks
+                    )
+                    overview["design_score"] = min(
+                        100,
+                        overview["design_score"] + round(20 * passed / 6),
+                    )
+                    result["design_overview"] = overview
+                    result["findings"].extend(design_metric_findings(overview))
+
+                result["status"] = _module_status(result["findings"])
+                result["counts"] = _finding_counts(result["findings"])
+            except Exception as exc:
+                # An optional report preview must never invalidate the
+                # underlying QA check or the rest of the scan.
+                result["report_enrichment_error"] = str(exc)
+
+            results.append(result)
 
         context.close()
         browser.close()

@@ -357,7 +357,11 @@ export default function ImageOptimizationReport({
     statusFilter,
     setStatusFilter,
   ] = useState(
-    "all"
+    () => assets.some(item => ["warning", "fail"].includes(getEffectiveStatus(item)))
+      ? "attention"
+      : assets.length > 0 && assets.every(item => getEffectiveStatus(item) === "pass")
+        ? "summary"
+        : "all"
   );
 
   const [
@@ -405,10 +409,9 @@ export default function ImageOptimizationReport({
               ]
             : assets.filter(
                 (item) =>
-                  getEffectiveStatus(
-                    item
-                  ) ===
-                  statusFilter
+                  statusFilter === "attention"
+                    ? ["warning", "fail"].includes(getEffectiveStatus(item))
+                    : getEffectiveStatus(item) === statusFilter
               );
 
         filtered.sort(
@@ -824,6 +827,7 @@ export default function ImageOptimizationReport({
         <div className="flex flex-wrap items-center gap-2">
           {
             [
+              ["attention", "Needs attention"],
               ["all", "All"],
               ["pass", "Pass"],
               ["warning", "Warning"],
@@ -861,7 +865,13 @@ export default function ImageOptimizationReport({
       </div>
 
 
-      <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+      {statusFilter === "summary" ? (
+        <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-5 text-sm text-emerald-800">
+          <p className="font-semibold">All images passed.</p>
+          <button type="button" onClick={() => setStatusFilter("all")}
+            className="mt-2 text-xs font-bold underline">Show all images</button>
+        </div>
+      ) : <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-200 bg-slate-50 px-5 py-4">
           <h3 className="text-sm font-semibold text-slate-950">
             All Images
@@ -1102,7 +1112,7 @@ export default function ImageOptimizationReport({
             </tbody>
           </table>
         </div>
-      </section>
+      </section>}
     </section>
   );
 }

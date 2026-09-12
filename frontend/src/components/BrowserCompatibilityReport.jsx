@@ -20,6 +20,10 @@ import {
 
 const FILTERS = [
   {
+    id: "attention",
+    label: "Needs attention",
+  },
+  {
     id: "all",
     label: "All",
   },
@@ -152,10 +156,9 @@ function CompatibilityTable({
                     row
                   );
 
-                return (
-                  cell?.status ===
-                  activeFilter
-                );
+                return activeFilter === "attention"
+                  ? cell?.status === "warning" || cell?.status === "fail"
+                  : cell?.status === activeFilter;
               }
             )
         );
@@ -343,7 +346,16 @@ export default function BrowserCompatibilityReport({
     statusFilter,
     setStatusFilter,
   ] = useState(
-    "all"
+    () => {
+      const hasAttention = criteria.some(row => browsers.some(browser =>
+        ["warning", "fail"].includes(browser.criteria?.[row.id]?.status)
+      ));
+      const allPassed = criteria.length > 0 && browsers.length > 0
+        && criteria.every(row => browsers.every(browser =>
+          browser.criteria?.[row.id]?.status === "pass"
+        ));
+      return hasAttention ? "attention" : allPassed ? "summary" : "all";
+    }
   );
 
 
@@ -475,7 +487,9 @@ export default function BrowserCompatibilityReport({
                   filter.id;
 
                 const count =
-                  filter.id ===
+                  filter.id === "attention"
+                    ? statusCounts.warning + statusCounts.fail
+                    : filter.id ===
                   "all"
                     ? (
                         statusCounts.pass
@@ -561,7 +575,13 @@ export default function BrowserCompatibilityReport({
       </section>
 
 
-      <section className="space-y-3">
+      {statusFilter === "summary" ? (
+        <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-5 text-sm text-emerald-800">
+          <p className="font-semibold">All detailed browser criteria passed.</p>
+          <button type="button" onClick={() => setStatusFilter("all")}
+            className="mt-2 text-xs font-bold underline">Show all checks</button>
+        </div>
+      ) : <section className="space-y-3">
         <div>
           <h3 className="text-sm font-semibold text-slate-950">
             Detailed Compatibility Matrix
@@ -593,7 +613,7 @@ export default function BrowserCompatibilityReport({
               ]
           }
         />
-      </section>
+      </section>}
 
 
       {

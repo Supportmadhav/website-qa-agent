@@ -339,7 +339,23 @@ export default function PageSpeedReport({
   const [
     strategy,
     setStrategy,
-  ] = useState(initial);
+  ] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem("qa_page_speed_strategy");
+      return saved && strategies[saved] ? saved : initial;
+    } catch {
+      return initial;
+    }
+  });
+
+  function selectStrategy(id) {
+    setStrategy(id);
+    try {
+      sessionStorage.setItem("qa_page_speed_strategy", id);
+    } catch {
+      // Persisting this display preference is optional.
+    }
+  }
 
   const active =
     strategies[strategy]
@@ -446,9 +462,7 @@ export default function PageSpeedReport({
                       id={id}
                       active={strategy === id}
                       data={strategies[id]}
-                      onClick={() =>
-                        setStrategy(id)
-                      }
+                      onClick={() => selectStrategy(id)}
                     />
                   )
                 )}
