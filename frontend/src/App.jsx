@@ -22,7 +22,6 @@ import {
 import ReportPanel from "./components/ReportPanel";
 import ResponsivePreviewStudio from "./components/ResponsivePreviewStudio";
 import WebsiteAudit from "./components/WebsiteAudit";
-import WebsitePageList from "./components/WebsitePageList";
 
 import {
   CHECKS,
@@ -57,7 +56,7 @@ const CHECK_DESCRIPTIONS = {
     "Animations, transitions and reduced-motion support.",
 
   browser_compatibility:
-    "Chrome, Firefox, Edge and WebKit checks.",
+    "Chrome, Firefox and Edge checks.",
 
   google_translate:
     "Google Translate presence and functional verification.",
@@ -1064,14 +1063,6 @@ export default function App() {
           <ReportPanel
             report={
               report
-            }
-          />
-
-          <WebsitePageList
-            pages={
-              report?.website_pages
-              ||
-              []
             }
           />
         </div>

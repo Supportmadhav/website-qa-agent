@@ -323,9 +323,16 @@ export default function BrowserCompatibilityReport({
     {};
 
   const browsers =
-    data.browsers
-    ||
-    [];
+    (
+      data.browsers
+      ||
+      []
+    ).filter(
+      browser =>
+        browser.id !== "safari"
+        &&
+        !String(browser.name || "").toLowerCase().includes("safari")
+    );
 
   const overviewRows =
     data.overview_rows

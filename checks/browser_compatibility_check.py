@@ -2722,7 +2722,7 @@ def _criteria_from_metrics(
         "manual",
         (
             "Real screen-reader behavior cannot be verified by Playwright alone. "
-            "Use NVDA/JAWS on Windows and VoiceOver on macOS/Safari for final accessibility sign-off."
+            "Use NVDA/JAWS on Windows and VoiceOver on macOS for final accessibility sign-off."
         ),
     )
 
@@ -3549,11 +3549,6 @@ def check_browser_compatibility(
     - Chrome
     - Edge
     - Firefox
-    - Safari* (Playwright WebKit on Windows)
-
-    IMPORTANT:
-    WebKit on Windows is an engine-level approximation of Safari.
-    It is not a real macOS Safari application.
     """
 
     print(
@@ -3612,22 +3607,6 @@ def check_browser_compatibility(
 
             "engine_label":
                 "Mozilla Firefox",
-        },
-        {
-            "id":
-                "safari",
-
-            "name":
-                "Safari*",
-
-            "playwright_type":
-                "webkit",
-
-            "channel":
-                None,
-
-            "engine_label":
-                "Playwright WebKit (Safari engine approximation)",
         },
     ]
 
@@ -3765,10 +3744,6 @@ def check_browser_compatibility(
 
         "notes":
             [
-                (
-                    "Safari* is tested with Playwright WebKit on Windows. "
-                    "Final Safari sign-off should be performed on macOS Safari."
-                ),
                 (
                     "Real screen-reader verification (NVDA/JAWS/VoiceOver), "
                     "real form submission/autofill, file transfer, and Slow 3G "

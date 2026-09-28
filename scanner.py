@@ -931,20 +931,106 @@ def _parse_findings(
 def _module_status(
     findings,
 ):
-    statuses = {
-        finding[
-            "status"
-        ]
+    failed_findings = [
+        finding
         for finding in findings
-    }
+        if finding.get(
+            "status"
+        ) == "fail"
+    ]
 
-    if "fail" in statuses:
+    # A module that could not execute is a real failed check regardless of
+    # how many findings were produced.
+    if any(
+        finding.get(
+            "title",
+            "",
+        ).strip().lower()
+        == "check execution error"
+        for finding in failed_findings
+    ):
         return "fail"
 
-    if "warning" in statuses:
+    # Keep an isolated failed finding visible as "needs attention" without
+    # making the whole report tab look like the entire check failed.
+    if len(
+        failed_findings
+    ) >= 2:
+        return "fail"
+
+    if failed_findings or any(
+        finding.get(
+            "status"
+        ) == "warning"
+        for finding in findings
+    ):
         return "warning"
 
     return "pass"
+
+
+def _page_speed_module_status(
+    page_speed_data,
+):
+    """Return the worst overall Lighthouse status across device strategies.
+
+    Individual Lighthouse metrics can fail while the weighted performance
+    score remains in the "needs improvement" range. The report tab represents
+    the check's overall score, so it must use the mobile/desktop score statuses
+    instead of the worst diagnostic row.
+    """
+    strategies = (
+        (page_speed_data or {}).get(
+            "strategies",
+            {},
+        )
+        or
+        {}
+    )
+
+    statuses = {
+        strategy.get(
+            "overall_status"
+        )
+        for strategy in strategies.values()
+        if isinstance(
+            strategy,
+            dict,
+        )
+    }
+
+    for status in (
+        "fail",
+        "warning",
+        "pass",
+        "info",
+    ):
+        if status in statuses:
+            return status
+
+    return None
+
+
+def _check_status(
+    check_id,
+    findings,
+    page_speed_data=None,
+):
+    status = _module_status(
+        findings
+    )
+
+    if check_id == "page_speed":
+        page_speed_status = (
+            _page_speed_module_status(
+                page_speed_data
+            )
+        )
+
+        if page_speed_status:
+            return page_speed_status
+
+    return status
 
 
 def _finding_counts(
@@ -2163,10 +2249,12 @@ def _run_one_check(
                 }
             )
 
-    status = (
-        _module_status(
-            findings
-        )
+    status = _check_status(
+        check_id,
+        findings,
+        structured[
+            "page_speed_data"
+        ],
     )
 
     return {
@@ -2566,7 +2654,11 @@ def run_scan(
                     result["design_overview"] = overview
                     result["findings"].extend(design_metric_findings(overview))
 
-                result["status"] = _module_status(result["findings"])
+                result["status"] = _check_status(
+                    check_id,
+                    result["findings"],
+                    result.get("page_speed_data"),
+                )
                 result["counts"] = _finding_counts(result["findings"])
             except Exception as exc:
                 # An optional report preview must never invalidate the

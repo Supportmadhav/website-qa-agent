@@ -19,6 +19,7 @@ import PageLinkListReport, {
 import BlogPageReport from "./BlogPageReport";
 import BrowserCompatibilityReport from "./BrowserCompatibilityReport";
 import ReadableQaReport from "./ReadableQaReport";
+import WebsitePageList from "./WebsitePageList";
 import {
   BrokenLinksInsightReport,
   LayoutInsightReport,
@@ -54,6 +55,68 @@ const STATUS_FILTERS = [
     label: "Info",
   },
 ];
+
+
+function reportStatus(result) {
+  if (result?.execution_status === "error") {
+    return "fail";
+  }
+
+  if (result?.id === "page_speed") {
+    const strategyStatuses = Object.values(
+      result.page_speed_data?.strategies || {}
+    )
+      .map(strategy => strategy?.overall_status)
+      .filter(Boolean);
+
+    return ["fail", "warning", "pass", "info"].find(
+      status => strategyStatuses.includes(status)
+    ) || result.page_speed_data?.overall_status || result.status || "info";
+  }
+
+  if (result?.id === "browser_compatibility") {
+    const browsers = (
+      result.browser_compatibility_data?.browsers || []
+    ).filter(
+      browser =>
+        browser.id !== "safari"
+        &&
+        !String(browser.name || "").toLowerCase().includes("safari")
+    );
+
+    const counts = browsers.reduce(
+      (total, browser) => {
+        Object.values(browser.criteria || {}).forEach(cell => {
+          if (cell?.status in total) {
+            total[cell.status] += 1;
+          }
+        });
+        return total;
+      },
+      { pass: 0, warning: 0, fail: 0, info: 0, manual: 0 }
+    );
+
+    if (counts.fail >= 2) return "fail";
+    if (counts.fail === 1 || counts.warning > 0) return "warning";
+    if (counts.pass > 0) return "pass";
+  }
+
+  const counts = result?.counts || {};
+
+  if ((counts.fail || 0) >= 2) {
+    return "fail";
+  }
+
+  if ((counts.fail || 0) === 1 || (counts.warning || 0) > 0) {
+    return "warning";
+  }
+
+  if ((counts.pass || 0) > 0) {
+    return "pass";
+  }
+
+  return result?.status || "info";
+}
 
 
 function SummaryTable({
@@ -422,6 +485,8 @@ function singleResultReport(
   report,
   result
 ) {
+  const effectiveStatus = reportStatus(result);
+
   const counts =
     result.counts
     ||
@@ -462,19 +527,19 @@ function singleResultReport(
       1,
 
     pass:
-      result.status ===
+      effectiveStatus ===
       "pass"
         ? 1
         : 0,
 
     warning:
-      result.status ===
+      effectiveStatus ===
       "warning"
         ? 1
         : 0,
 
     fail:
-      result.status ===
+      effectiveStatus ===
       "fail"
         ? 1
         : 0,
@@ -524,8 +589,17 @@ function singleResultReport(
     summary:
       checkSummary,
 
+    website_pages:
+      result.id === "website_page_list"
+        ? report.website_pages || []
+        : [],
+
     results: [
-      result,
+      {
+        ...result,
+        status:
+          effectiveStatus,
+      },
     ],
   };
 }
@@ -597,7 +671,7 @@ function ReportTabs({
 
                       <StatusBadge
                         status={
-                          result.status
+                          reportStatus(result)
                         }
                         compact
                       />
@@ -833,6 +907,21 @@ export default function ReportPanel({
   }
 
   const focusedResult = reportResults[0];
+
+  if (focusedResult?.id === "website_page_list") {
+    return (
+      <section className="space-y-4">
+        <ReadableQaReport
+          report={report}
+          result={focusedResult}
+        />
+
+        <WebsitePageList
+          pages={report.website_pages || []}
+        />
+      </section>
+    );
+  }
 
   if (focusedResult?.id === "social_media" && focusedResult.social_profiles) {
     return <SocialMediaInsightReport report={report} result={focusedResult} />;
