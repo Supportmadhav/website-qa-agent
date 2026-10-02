@@ -12,6 +12,7 @@ __pycache__/
 .lh-test.json
 
 frontend/dist/
+frontend/.astro/
 
 .env
 frontend/.env

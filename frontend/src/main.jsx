@@ -1,36 +1,24 @@
 import React from "react";
-import ReactDOM from "react-dom/client";
 
 import App from "./App";
-import "./index.css";
-
 
 class BootErrorBoundary extends React.Component {
-  constructor(
-    props
-  ) {
-    super(
-      props
-    );
+  constructor(props) {
+    super(props);
 
     this.state = {
-      error:
-        null,
+      error: null,
     };
   }
 
-  static getDerivedStateFromError(
-    error
-  ) {
+  static getDerivedStateFromError(error) {
     return {
       error,
     };
   }
 
   render() {
-    if (
-      this.state.error
-    ) {
+    if (this.state.error) {
       return (
         <pre
           style={{
@@ -40,13 +28,7 @@ class BootErrorBoundary extends React.Component {
             fontFamily: "Segoe UI, sans-serif",
           }}
         >
-          {
-            String(
-              this.state.error?.stack
-              ||
-              this.state.error
-            )
-          }
+          {String(this.state.error?.stack || this.state.error)}
         </pre>
       );
     }
@@ -55,17 +37,10 @@ class BootErrorBoundary extends React.Component {
   }
 }
 
-
-ReactDOM
-  .createRoot(
-    document.getElementById(
-      "root"
-    )
-  )
-  .render(
-    <React.StrictMode>
-      <BootErrorBoundary>
-        <App />
-      </BootErrorBoundary>
-    </React.StrictMode>
+export default function Workspace() {
+  return (
+    <BootErrorBoundary>
+      <App />
+    </BootErrorBoundary>
   );
+}

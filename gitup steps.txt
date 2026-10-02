@@ -1,0 +1,6 @@
+cd E:\website-qa-agent
+git status
+git add .
+git commit -m "Your update message"
+git push
+git status
